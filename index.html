@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>Drought cycles</title>
+
+        <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+    	<link href="http://netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css" rel="stylesheet">
+    	<script src="http://netdna.bootstrapcdn.com/bootstrap/3.0.3/js/bootstrap.min.js"></script>
+
+		<style type="text/css">
+
+		h1 {
+			font-family: "Helvetica Neue", Helvetica, sans-serif;
+			font-weight: 500;
+			line-height: 1.1;
+			text-indent: 20px;
+		}
+
+			svg {
+				width:100%;
+			}
+
+			.axis path,
+			.axis line {
+			    fill: none;
+			    stroke: #000;
+			    shape-rendering: crispEdges;
+			}
+			.axis text {
+			    font-family: 'Helvetica Neue';
+			    font-size: 11px;
+			}
+
+		.caption-legend {
+			margin-top: 15px;
+		}
+
+		.caption p {
+			font-family: "Helvetica Neue";
+			font-size: 1.1em;
+			font-weight:200;
+		}
+		.legend-title {
+		    text-align: left;
+		    margin-bottom: 8px;
+		    font-weight: bold;
+		    font-size: 90%;
+	    }
+	    .legend-scale ul {
+		    margin: 0;
+		    padding: 0;
+		    float: left;
+		    list-style: none;
+	    }
+	    .legend-scale ul li {
+		    display: block;
+		    float: left;
+		    width: 55px;
+		    margin-bottom: 6px;
+		    text-align: center;
+		    font-size: 80%;
+		    list-style: none;
+	    }
+	    ul.legend-labels li span {
+		    display: block;
+		    float: left;
+		    height: 15px;
+		    width: 55px;
+		    border: 1px solid gray;
+	    }
+	    .legend-source {
+		    font-size: 70%;
+		    color: #999;
+		    clear: both;
+	    }
+	    .nothing {
+			background-color: #ffffff;
+		}
+		.d0 {
+			background-color: #ffff00;
+		}
+		.d1{
+			background-color:#ffcc66;
+		}
+		.d2 {
+			background-color:#ff9900;
+		}
+		.d3 {
+			background-color:#cc3300;
+		}
+		.d4 {
+			background-color: #660000;
+		}
+		</style>
+		
+        <script src="js/d3.min.js" charset="utf-8"></script>
+
+
+    </head>
+    <body>
+   	
+    <div class="row">
+
+    <div class="col-sm-12">
+    	<h1>Cyclic Drought</h1>
+   	</div>
+
+    <div class="col-sm-10 col-sm-offset-1">
+
+        <script type="text/javascript">
+					
+			var margin = {top: 20, right: 20, bottom: 20, left: 50},
+			    width = 700 - margin.left - margin.right,
+			    height = 300 - margin.top - margin.bottom;
+
+			var parseDate = d3.time.format("%m/%d/%y").parse,
+				formatPercent = d3.format(".0%");
+
+			var x = d3.time.scale()
+    			.range([0, width]);
+
+			var y = d3.scale.linear()
+			    .range([height, 0]);
+
+			//var color = d3.scale.category20();
+
+			var color = d3.scale.ordinal()
+				.domain([ "Nothing", 
+						  "D0", 
+						  "D1", 
+						  "D2", 
+						  "D3", 
+						  "D4"])
+				.range(['rgb(102,0,0)',
+						'rgb(204,51,0)', 
+						'rgb(255,152,0)', 
+						'rgb(255,204,102)',
+						'rgb(255,255,0)',
+						'rgb(255,255,255)'
+						]); 
+
+			var xAxis = d3.svg.axis()
+			    .tickFormat(d3.time.format("%Y"))
+				.scale(x)
+				.orient("bottom");
+
+			var yAxis = d3.svg.axis()
+			    .scale(y)
+			    .orient("left")
+			    .tickFormat(formatPercent);
+
+			var area = d3.svg.area()
+			    .x(function(d) { return x(d.date); })
+			    .y0(function(d) { return y(d.y0); })
+			    .y1(function(d) { return y(d.y0 + d.y); });
+
+			var stack = d3.layout.stack()
+			    .values(function(d) { return d.values; });
+
+			var svg = d3.select("body").append("svg")
+				.attr("width", "100%")
+				.attr("height", "100%")
+			    .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+			    .attr("preserveAspectRatio", "xMidYMin")
+			  .append("g")
+			    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+			d3.csv("drought2.csv", function(error, data) {
+			  color.domain(d3.keys(data[0]).filter(function(key) { return key !== "Week"; }));
+
+				data.forEach(function(d) {
+					d.Week = parseDate(d.Week);
+				});
+
+			  var drought = stack(color.domain().map(function(name) {
+			    return {
+			      name: name,
+			      values: data.map(function(d) {
+			        return {date: d.Week, y: d[name] / 100};
+			      })
+			    };
+			  }));
+
+			  x.domain(d3.extent(data, function(d) { return d.Week; }));
+
+			  var drought = svg.selectAll(".drought")
+			      .data(drought)
+			    .enter().append("g")
+			      .attr("class", "drought");
+
+			  drought.append("path")
+			      .attr("class", "area")
+			      .attr("d", function(d) { return area(d.values); })
+			      .style("fill", function(d) { return color(d.name); });
+
+			  svg.append("g")
+			      .attr("class", "x axis")
+			      .attr("transform", "translate(0," + height + ")")
+			      .call(xAxis);
+
+			  svg.append("g")
+			      .attr("class", "y axis")
+			      .call(yAxis);
+			});
+
+
+
+        </script>
+    </div>
+
+    <div class="col-sm-10 col-sm-offset-1">
+            
+        <div class="col-sm-6 caption-legend">
+    		<div class="caption">
+            	<p>The colored areas indicate the percentage of the state affected by drought. Data: U.S. Drought Monitor</p>
+            </div>
+    	</div>
+        <div class="col-sm-6 legend-container">
+            <div class="legend-title">Legend</div>
+            <div class='legend-scale'>
+                <ul class="legend-labels">
+                    <li><span class="d0"></span>D0<br/>Abnormally Dry</li>
+                    <li><span class="d1"></span>D1<br/>Moderate Drought</li>
+                    <li><span class="d2"></span>D2<br/>Severe Drought</li>
+                    <li><span class="d3"></span>D3<br/>Extreme Drought</li>
+                    <li><span class="d4"></span>D4<br/>Exceptional Drought</li>
+        	    </ul>
+            </div>
+        </div>
+    </body>
+</html>
